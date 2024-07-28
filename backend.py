@@ -323,8 +323,12 @@ class BackEndClass(QtWidgets.QWidget, Ui_MainWindow):
 
     def processing_error(self):
         self.thread.quit()
-        QMessageBox.about(self, "Message", "No directory Selected! \n Please Select a Directory with HTML files.")
-    
+        if number_of_files == 0:
+            QMessageBox.about(self, "Message", "No directory Selected! \n Please Select a Directory with HTML files.")
+        else:
+            QMessageBox.about(self, "Message", "Empty HTML FILE")
+
+
     def clear_logs_function(self):
         self.status_textEdit.clear()
         
