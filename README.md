@@ -1,0 +1,2 @@
+# auto-test-summerizer
+ auto-test-summerizer  is a Python-based tool designed to streamline the process of extracting and summarizing test results from multiple HTML files. This tool automates the extraction of test data, compiles it into a single Excel file, and provides a detailed summary of the results. It highlights passed and failed test cases, making it easier for users to analyze their test results efficiently.
