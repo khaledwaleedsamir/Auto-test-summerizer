@@ -1,0 +1,8 @@
+<RCC>
+  <qresource prefix="logo">
+    <file>bright.png</file>
+  </qresource>
+  <qresource prefix="icon">
+    <file>automation_icon-icons.com_70310.ico</file>
+  </qresource>
+</RCC>
