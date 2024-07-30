@@ -1,3 +1,52 @@
+"""
+**********************************************************************************
+File: backend_final.py
+Author: Khaled Waleed Samir Metwally
+Date: 29/7/2024
+
+Description:
+This script is designed to process HTML test result files, extract relevant data,
+and compile the results into an Excel file. The tool uses the PyQt5 library for 
+the graphical user interface, selenium for web automation, and openpyxl for 
+manipulating Excel files.
+
+The script includes functionality for:
+- Checking if an Excel file exists and creating one if it doesn't.
+- Writing data to an Excel file.
+- Applying custom styles to Excel sheets.
+- Formatting cells based on specific search values.
+- Multi-threaded processing to ensure the GUI remains responsive during long operations.
+
+Classes:
+- Worker: Handles the background processing of HTML files.
+- BackEndClass: Manages the GUI interactions and starts the background thread.
+
+Functions:
+- check_if_excel_exists: Checks if an Excel file exists and returns an openpyxl Workbook object.
+- is_sheet_empty: Checks if a specified sheet in an Excel file is empty.
+- style_excel_sheet: Applies specified styling to the headers and data cells in an Excel sheet.
+- write_data_excel: Writes data to an Excel file.
+- format_cells_with_values: Formats cells in an Excel file that contain a specific search value.
+
+Global Variables:
+- dir_name: Holds the selected directory name.
+- number_of_files: Contains the number of HTML files in the directory.
+- progress_bar_counter: Holds the current progress bar counter.
+- progress_bar_step: Defines the step of the progress bar based on the number of files to process.
+- files_list: List containing the file names of the selected directory.
+- options: Holds the Chrome driver options.
+- driver: WebDriver instance for Google Chrome.
+- test_results_excel_file: Holds the output Excel file name.
+
+Usage:
+1. Select a directory containing HTML test result files using the browse button.
+2. Click the start button to process the files and generate an Excel file.
+3. The status and progress will be updated in the GUI during processing.
+4. The results will be saved in an Excel file named "Tests_Results.xlsx".
+
+**********************************************************************************
+"""
+
 # Imports
 import openpyxl.workbook
 from front import Ui_MainWindow
@@ -66,46 +115,49 @@ def is_sheet_empty(excel_file):
     return True
   else:
     return False
-  
 
-def write_data_excel(excel_file_name, excel_data, styling_options):
+def style_excel_sheet(excel_file_name, header_styling=None, data_styling=None):
     """
-    Writes data to an Excel file with specified styling options and auto-fits the columns and rows.
-
-    This function writes a list of data to an Excel file. If the file doesn't exist, it creates a new one. 
-    The function also applies specified styling options to the cells and adjusts the column widths and row heights 
-    to fit the content.
-
+    Applies specified styling to the headers and data cells in an Excel sheet.
+    Contains some default styling options that will be used if header_styling or data_styling are not passed.
+    
     Args:
-        excel_file_name (str): The name or path of the Excel file to write data to.
-        excel_data (list): A list of lists, where each sublist represents a row of data to be written to the Excel file.
-        styling_options (dict): A dictionary of styling options. The default options are:
-            - 'font': openpyxl.styles.Font object (default: Arial, size 14, not bold)
-            - 'alignment': openpyxl.styles.Alignment object (default: centered horizontally and vertically)
-
+        excel_file_name (str): The name or path of the Excel file to style.
+        header_styling (dict): A dictionary of styling options for the header row.
+        data_styling (dict): A dictionary of styling options for the data rows.
+        
     Returns:
         None
     """
     # Defining the default styling options
     default_options = {
         "font": Font(name='Arial', size=14, bold=False),
-        "alignment": Alignment(horizontal='center', vertical='center')
+        "alignment": Alignment(horizontal='center', vertical='center'),
+        "fill": PatternFill(fill_type=None)
     }
     # check if there are any styling options passed to the function and combine them with default options
-    styling_options = {**default_options, **styling_options}
-    workbook = check_if_excel_exists(excel_file_name)   
+    header_styling = {**default_options, **header_styling}
+    data_styling = {**default_options, **data_styling}
     # Load the workbook and select the active sheet
+    workbook = check_if_excel_exists(excel_file_name)   
     sheet = workbook.active
-    if is_sheet_empty(excel_file_name):
-        next_row = sheet.max_row
-    else:
-        next_row = sheet.max_row + 1
-    for row_data in excel_data:
-        for col, data in enumerate(row_data, start=1):
-            cell = sheet.cell(row=next_row, column=col, value=data)
-            cell.font = styling_options.get('font')
-            cell.alignment = styling_options.get('alignment')
-        next_row += 1
+     # Apply header styling
+    for cell in sheet[1]:
+        if 'font' in header_styling:
+            cell.font = header_styling['font']
+        if 'alignment' in header_styling:
+            cell.alignment = header_styling['alignment']
+        if 'fill' in header_styling:
+            cell.fill = header_styling['fill']
+     # Apply data styling
+    for row in sheet.iter_rows(min_row=2):
+        for cell in row:
+            if 'font' in data_styling:
+                cell.font = data_styling['font']
+            if 'alignment' in data_styling:
+                cell.alignment = data_styling['alignment']
+            if 'fill' in data_styling:
+                cell.fill = data_styling['fill']
     
     # Autofitting the rows and columns the adjusted width and height formulas are obtained by trial and error and not accurate
     # Autofit columns
@@ -116,7 +168,7 @@ def write_data_excel(excel_file_name, excel_data, styling_options):
             try:
                 if len(str(cell.value)) > max_length:
                     max_length = len(str(cell.value))
-                    font_size = styling_options.get('font').size
+                    font_size = header_styling.get('font').size
     
             except:
                 pass
@@ -135,6 +187,32 @@ def write_data_excel(excel_file_name, excel_data, styling_options):
         sheet.row_dimensions[row[0].row].height = adjusted_height
     
     workbook.save(excel_file_name)
+
+def write_data_excel(excel_file_name, excel_data):
+    """
+    Writes data to an Excel file.
+
+    Args:
+        excel_file_name (str): The name or path of the Excel file to write data to.
+        excel_data (list): A list of lists, where each sublist represents a row of data to be written to the Excel file.
+
+    Returns:
+        None
+    """
+    # Load the workbook and select the active sheet
+    workbook = check_if_excel_exists(excel_file_name)
+    sheet = workbook.active
+    if is_sheet_empty(excel_file_name):
+        next_row = sheet.max_row
+    else:
+        next_row = sheet.max_row + 1
+    for row_data in excel_data:
+        for col, data in enumerate(row_data, start=1):
+            sheet.cell(row=next_row, column=col, value=data)
+        next_row += 1
+    workbook.save(excel_file_name)
+    
+    
 
 def format_cells_with_values(excel_file_name, search_value, font=None, fill=None, alignment=None):
     """
@@ -215,12 +293,8 @@ class Worker(QObject):
                         # Adding an extra column for the overall result
                         headers_list.append('Overall Result')
                         # Headers styling dict
-                        headers_style = {
-                            "font": Font(name='Arial', size=12, bold=True),
-                            "alignment": Alignment(horizontal='center', vertical='center')
-                        }
                         # Calling the function to write the headers name to the excel file.
-                        write_data_excel(test_results_excel_file, [headers_list], headers_style)
+                        write_data_excel(test_results_excel_file, [headers_list])
                         # Setting the first iteration flag to false to write the headers only once in the file.
                         first_iteration = False
                     
@@ -232,11 +306,6 @@ class Worker(QObject):
                         cell_data = [cell.text for cell in cells]
                         if cell_data:
                             table_data.append(cell_data)
-                    # Data Styling dict
-                    data_style = {
-                        "font": Font(name='Arial', size=12, bold=False),
-                        "alignment": Alignment(horizontal='center', vertical='center')
-                    }
                     # Removing the last row in the HTML (contains the test result summary[pass or fail])
                     overall_test_result = table_data.pop()
                     # Appending the test result to the first row in the new column (overall results)
@@ -244,11 +313,26 @@ class Worker(QObject):
                     # Sending signals to update status on the GUI and update the progress bar
                     self.status_update.emit(f"*************Test File: {file}*************\n")
                     self.status_update.emit(f"{str(overall_test_result)}\n")
-                    print(table_data)
-                    write_data_excel(test_results_excel_file, table_data, data_style)
+                    print(table_data) # print for testing
+                    # Write the data of the current HTML file to the excel file
+                    write_data_excel(test_results_excel_file, table_data)
                     progress_bar_counter += progress_bar_step
                     self.progress_updated.emit(int(progress_bar_counter))
-            
+
+            ####################################### Styling The Excel Sheet #######################################
+            # Headers Styling dict
+            headers_style = {
+                    "font": Font(name='Arial', size=12, bold=True),
+                    "alignment": Alignment(horizontal='center', vertical='center'),
+                    "fill": PatternFill(start_color='ADD8E6', end_color='ADD8E6', fill_type='solid')
+                }
+            # Data Styling dict
+            data_style = {
+                "font": Font(name='Arial', size=12, bold=False),
+                "alignment": Alignment(horizontal='center', vertical='center')
+            }
+            # Applying style to the Excel sheet
+            style_excel_sheet(test_results_excel_file, headers_style, data_style)
             # Applying red highlight to failed tests and green highlight to passed tests
             passed_fill = PatternFill(start_color='00FF00', end_color='00FF00', fill_type='solid')
             failed_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
